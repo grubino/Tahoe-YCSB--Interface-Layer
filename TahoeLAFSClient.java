@@ -1,7 +1,7 @@
 /**
  * Tahoe-LAFS client binding for YCSB.
  *
- * Submitted by Greg Rubino
+ * Submitted by Greg Rubino (plagiarized from Yen Pai... ;)
  *
  */
 
