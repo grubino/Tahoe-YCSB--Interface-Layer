@@ -1,7 +1,10 @@
 /**
  * Tahoe-LAFS client binding for YCSB.
  *
- * Submitted by Greg Rubino (plagiarized from Yen Pai... ;)
+ * Submitted by Greg Rubino 
+ * 
+ * plagiarized from Yen Pai's MongoDB YCSB interface layer:
+ * https://gist.github.com/000a66b8db2caf42467b#file_mongo_db.java
  *
  */
 
