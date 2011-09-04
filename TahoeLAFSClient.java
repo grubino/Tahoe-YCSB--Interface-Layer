@@ -25,7 +25,7 @@ import com.yahoo.ycsb.DBException;
  *
  * Properties to set:
  *
- * TahoeLAFS.url=http://localhost:27017 // TODO: default Port?
+ * TahoeLAFS.url=http://localhost:3456
  * TODO: put more properties here if necessary.
  *
  * @author grubino
@@ -41,7 +41,6 @@ public class TahoeLAFSClient extends DB {
         // initialize TahoeLAFS driver
         Properties props = getProperties();
         String url = props.getProperty("TahoeLAFS.url");
-
     }
 
     @Override
@@ -53,7 +52,7 @@ public class TahoeLAFSClient extends DB {
      * @return Zero on success, a non-zero error code on error. See this class's description for a discussion of error codes.
      */
     public int delete(String table, String key) {
-        com.TahoeLAFS.DB db=null;
+        org.lafs.LAFSConnection conn = null;
         try {
             return ((Integer) errors.get("n")) == 1 ? 0 : 1;
         } catch (Exception e) {
@@ -62,7 +61,7 @@ public class TahoeLAFSClient extends DB {
         }
         finally
         {
-            if (db!=null)
+            if (conn != null)
             {
             }
         }
