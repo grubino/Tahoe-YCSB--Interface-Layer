@@ -32,6 +32,11 @@ import org.apache.http.protocol.RequestConnControl;
 import org.apache.http.protocol.RequestContent;
 import org.apache.http.protocol.RequestUserAgent;
 import org.apache.http.protocol.RequestExpectContinue;
+import org.apache.http.message.BasicHttpRequest;
+import org.apache.http.HttpResponse;
+import org.apache.http.message.BasicHttpResponse;
+import org.apache.http.HttpException;
+import org.apache.http.util.EntityUtils;
 
 import org.lafs.LAFSConnection;
 
@@ -52,11 +57,11 @@ public class TahoeLAFSConnection implements LAFSConnection {
     private Socket mSocket;
     private HttpRequestExecutor mHttpExecutor;
     private ImmutableHttpProcessor mHttpProcessor;
+    private SyncBasicHttpParams mHttpParams;
     
     public TahoeLAFSConnection(String hostname, int port) throws UnknownHostException, IOException {
 
 	mHttpHost = new HttpHost(hostname, port);
-	mSocket = new Socket(hostname, port);
 	mHttpProcessor =
 	    new ImmutableHttpProcessor(new HttpRequestInterceptor[] {
 		    new RequestContent()
@@ -68,23 +73,51 @@ public class TahoeLAFSConnection implements LAFSConnection {
 	mHttpExecutor = new HttpRequestExecutor();
 	mHttpContext = new BasicHttpContext(null);
 
-	HttpParams params = new SyncBasicHttpParams();
-	HttpProtocolParams.setVersion(params, HttpVersion.HTTP_1_1);
-	HttpProtocolParams.setContentCharset(params, "UTF-8");
-	HttpProtocolParams.setUserAgent(params, "TahoeLAFS YCSB Workload Tester");
-	HttpProtocolParams.setUseExpectContinue(params, true);
+	mHttpParams = new SyncBasicHttpParams();
+	
+	HttpProtocolParams.setVersion(mHttpParams, HttpVersion.HTTP_1_1);
+	HttpProtocolParams.setContentCharset(mHttpParams, "UTF-8");
+	HttpProtocolParams.setUserAgent(mHttpParams, "TahoeLAFS Java Client");
+	HttpProtocolParams.setUseExpectContinue(mHttpParams, true);
 
 	mConnection = new DefaultHttpClientConnection();
 
 	mHttpContext.setAttribute(ExecutionContext.HTTP_CONNECTION, mConnection);
 	mHttpContext.setAttribute(ExecutionContext.HTTP_TARGET_HOST, mHttpHost);
-	
-	mConnection.bind(mSocket, params);
 
     }
 
     public InputStream get(String readCap) throws IOException {
-	return (new ByteArrayInputStream(new byte[1024]));
+
+	if(!mConnection.isOpen()) {
+	    mSocket = new Socket(mHttpHost.getHostName(), mHttpHost.getPort());
+	    mConnection.bind(mSocket, mHttpParams);
+	}
+
+	BasicHttpRequest request = new BasicHttpRequest("GET", ("/uri/" + readCap));
+
+	try {
+	    
+	    request.setParams(mHttpParams);
+	    mHttpExecutor.preProcess(request, mHttpProcessor, mHttpContext);
+	    
+	    HttpResponse response = mHttpExecutor.execute(request
+							  , mConnection
+							  , mHttpContext);
+	    response.setParams(mHttpParams);
+	    mHttpExecutor.postProcess(response
+				      , mHttpProcessor
+				      , mHttpContext);
+
+	    System.out.println("Response: " + response.toString());
+
+	    return response.getEntity().getContent();
+	
+	}
+	catch(HttpException e) {
+	    throw new IOException(e.getMessage());
+	}
+	
     }
     public void put(String writeCap
 		    , OutputStream contents) throws IOException {}
