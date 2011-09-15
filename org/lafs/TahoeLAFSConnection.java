@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.File;
 import java.io.IOException;
 
 import java.util.HashMap;
@@ -32,11 +33,14 @@ import org.apache.http.protocol.RequestConnControl;
 import org.apache.http.protocol.RequestContent;
 import org.apache.http.protocol.RequestUserAgent;
 import org.apache.http.protocol.RequestExpectContinue;
+import org.apache.http.HttpRequest;
 import org.apache.http.message.BasicHttpRequest;
+import org.apache.http.message.BasicHttpEntityEnclosingRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.HttpException;
 import org.apache.http.util.EntityUtils;
+import org.apache.http.entity.StringEntity;
 
 import org.lafs.LAFSConnection;
 
@@ -94,7 +98,49 @@ public class TahoeLAFSConnection implements LAFSConnection {
 	    mConnection.bind(mSocket, mHttpParams);
 	}
 
-	BasicHttpRequest request = new BasicHttpRequest("GET", ("/uri/" + readCap));
+	BasicHttpRequest request = new BasicHttpRequest("GET", ("/file/" + readCap));
+
+	HttpResponse response = executeHttpRequest(request);
+
+	return response.getEntity().getContent();
+	
+    }
+    
+    public void put(String writeCap
+		    , InputStream contents) throws IOException {
+
+	if(!mConnection.isOpen()) {
+	    mSocket = new Socket(mHttpHost.getHostName(), mHttpHost.getPort());
+	    mConnection.bind(mSocket, mHttpParams);
+	}
+
+	/**
+	 * this is a kludge because I don't know how to get a stream into
+	 * the request directly...  TODO: figure out how to do this right.
+	 */
+	int bytesRead = 0;
+	String contentString = new String();
+	do {
+	    byte[] contentBuffer = new byte[1024];
+	    bytesRead = contents.read(contentBuffer, 0, 1024);
+	    if(bytesRead > 0)
+		contentString = (contentString + new String(contentBuffer, 0, bytesRead));
+	} while(bytesRead >= 0);
+
+	BasicHttpEntityEnclosingRequest request = new BasicHttpEntityEnclosingRequest("PUT", ("/uri/" + writeCap));
+	request.setEntity(new StringEntity(contentString));
+	
+	executeHttpRequest(request);
+	
+    }
+    
+    public void del(String writeCap) throws IOException {}
+    public void mkdir(String writeCap) throws IOException {}
+    public HashMap stat(String readCap) throws IOException {
+	return (new HashMap());
+    }
+
+    private HttpResponse executeHttpRequest(HttpRequest request) throws IOException {
 
 	try {
 	    
@@ -111,20 +157,13 @@ public class TahoeLAFSConnection implements LAFSConnection {
 
 	    System.out.println("Response: " + response.toString());
 
-	    return response.getEntity().getContent();
+	    return response;
 	
 	}
 	catch(HttpException e) {
 	    throw new IOException(e.getMessage());
 	}
-	
-    }
-    public void put(String writeCap
-		    , OutputStream contents) throws IOException {}
-    public void del(String writeCap) throws IOException {}
-    public void mkdir(String writeCap) throws IOException {}
-    public HashMap stat(String readCap) throws IOException {
-	return (new HashMap());
+
     }
 
 }
