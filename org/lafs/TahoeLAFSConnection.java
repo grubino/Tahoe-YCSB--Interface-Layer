@@ -1,46 +1,27 @@
 package org.lafs;
 
-import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.io.File;
+import java.io.StringWriter;
+
 import java.io.IOException;
+import java.lang.IllegalArgumentException;
 
 import java.util.HashMap;
 
-import java.net.Socket;
-import java.net.UnknownHostException;
-
-import org.apache.http.HttpHost;
-import org.apache.http.HttpVersion;
-import org.apache.http.HttpRequestInterceptor;
-import org.apache.http.params.HttpParams;
-import org.apache.http.params.HttpProtocolParams;
-import org.apache.http.params.SyncBasicHttpParams;
-import org.apache.http.protocol.HttpContext;
-import org.apache.http.protocol.BasicHttpContext;
-import org.apache.http.protocol.ExecutionContext;
-import org.apache.http.protocol.HttpRequestExecutor;
-import org.apache.http.protocol.HttpProcessor;
-import org.apache.http.protocol.ImmutableHttpProcessor;
-import org.apache.http.protocol.RequestContent;
-import org.apache.http.impl.DefaultConnectionReuseStrategy;
-import org.apache.http.impl.DefaultHttpClientConnection;
-import org.apache.http.protocol.RequestTargetHost;
-import org.apache.http.protocol.RequestConnControl;
-import org.apache.http.protocol.RequestContent;
-import org.apache.http.protocol.RequestUserAgent;
-import org.apache.http.protocol.RequestExpectContinue;
-import org.apache.http.HttpRequest;
-import org.apache.http.message.BasicHttpRequest;
-import org.apache.http.message.BasicHttpEntityEnclosingRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicHttpResponse;
-import org.apache.http.HttpException;
+import org.apache.http.client.ResponseHandler;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.methods.HttpDelete;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.entity.FileEntity;
 import org.apache.http.util.EntityUtils;
-import org.apache.http.entity.StringEntity;
+
+import org.apache.commons.io.IOUtils;
 
 import org.lafs.LAFSConnection;
 
@@ -55,115 +36,107 @@ import org.lafs.LAFSConnection;
  */
 public class TahoeLAFSConnection implements LAFSConnection {
 
-    private DefaultHttpClientConnection mConnection;
-    private HttpHost mHttpHost;
-    private HttpContext mHttpContext;
-    private Socket mSocket;
-    private HttpRequestExecutor mHttpExecutor;
-    private ImmutableHttpProcessor mHttpProcessor;
-    private SyncBasicHttpParams mHttpParams;
+    String mHost;
+    String mPort;
+
+    HttpClient mHttpClient;
     
-    public TahoeLAFSConnection(String hostname, int port) throws UnknownHostException, IOException {
+    public TahoeLAFSConnection(String hostname, String port) throws IOException {
 
-	mHttpHost = new HttpHost(hostname, port);
-	mHttpProcessor =
-	    new ImmutableHttpProcessor(new HttpRequestInterceptor[] {
-		    new RequestContent()
-		    , new RequestTargetHost()
-		    , new RequestConnControl()
-		    , new RequestExpectContinue()
-		    , new RequestUserAgent()
-		});
-	mHttpExecutor = new HttpRequestExecutor();
-	mHttpContext = new BasicHttpContext(null);
+	mHost = hostname;
+	mPort = port;
 
-	mHttpParams = new SyncBasicHttpParams();
-	
-	HttpProtocolParams.setVersion(mHttpParams, HttpVersion.HTTP_1_1);
-	HttpProtocolParams.setContentCharset(mHttpParams, "UTF-8");
-	HttpProtocolParams.setUserAgent(mHttpParams, "TahoeLAFS Java Client");
-	HttpProtocolParams.setUseExpectContinue(mHttpParams, true);
-
-	mConnection = new DefaultHttpClientConnection();
-
-	mHttpContext.setAttribute(ExecutionContext.HTTP_CONNECTION, mConnection);
-	mHttpContext.setAttribute(ExecutionContext.HTTP_TARGET_HOST, mHttpHost);
+	mHttpClient = new DefaultHttpClient();
 
     }
 
-    public InputStream get(String readCap) throws IOException {
+    public InputStream get(String location) throws IOException {
 
-	if(!mConnection.isOpen()) {
-	    mSocket = new Socket(mHttpHost.getHostName(), mHttpHost.getPort());
-	    mConnection.bind(mSocket, mHttpParams);
+	try {
+
+	    String requestURL = "http://" + mHost + ":" + mPort + "/uri" + location;
+	    
+	    HttpGet getRequest = new HttpGet(requestURL);
+	    HttpResponse response = mHttpClient.execute(getRequest);
+
+	    return response.getEntity().getContent();
+	    
 	}
-
-	BasicHttpRequest request = new BasicHttpRequest("GET", ("/file/" + readCap));
-
-	HttpResponse response = executeHttpRequest(request);
-
-	return response.getEntity().getContent();
-	
-    }
-    
-    public void put(String writeCap
-		    , InputStream contents) throws IOException {
-
-	if(!mConnection.isOpen()) {
-	    mSocket = new Socket(mHttpHost.getHostName(), mHttpHost.getPort());
-	    mConnection.bind(mSocket, mHttpParams);
+	catch(IllegalArgumentException e) {
+	    
+	    throw new IOException(e.getMessage());
+	    
 	}
-
-	/**
-	 * this is a kludge because I don't know how to get a stream into
-	 * the request directly...  TODO: figure out how to do this right.
-	 */
-	int bytesRead = 0;
-	String contentString = new String();
-	do {
-	    byte[] contentBuffer = new byte[1024];
-	    bytesRead = contents.read(contentBuffer, 0, 1024);
-	    if(bytesRead > 0)
-		contentString = (contentString + new String(contentBuffer, 0, bytesRead));
-	} while(bytesRead >= 0);
-
-	BasicHttpEntityEnclosingRequest request = new BasicHttpEntityEnclosingRequest("PUT", ("/uri/" + writeCap));
-	request.setEntity(new StringEntity(contentString));
-	
-	executeHttpRequest(request);
 	
     }
     
-    public void del(String writeCap) throws IOException {}
-    public void mkdir(String writeCap) throws IOException {}
-    public HashMap stat(String readCap) throws IOException {
-	return (new HashMap());
-    }
+    public String put(String location
+		      , String contentType
+		      , File file) throws IOException {
 
-    private HttpResponse executeHttpRequest(HttpRequest request) throws IOException {
+	String requestURL = "http://" + mHost + ":" + mPort + "/uri" + location;
+	FileEntity uploadEntity = new FileEntity(file, contentType);
+
+	HttpPut putRequest = new HttpPut(requestURL);
+	putRequest.setEntity(uploadEntity);
+	HttpResponse response = mHttpClient.execute(putRequest);
+	
+	InputStream responseStream = response.getEntity().getContent();
+	StringWriter fileCapWriter = new StringWriter();
+
+	IOUtils.copy(responseStream, fileCapWriter);
+
+	return fileCapWriter.toString();
+	
+    }
+    
+    public void del(String location) throws IOException {
 
 	try {
 	    
-	    request.setParams(mHttpParams);
-	    mHttpExecutor.preProcess(request, mHttpProcessor, mHttpContext);
+	    HttpDelete getRequest = new HttpDelete("http://" + mHost + ":" + mPort + "/uri" + location);
+	    HttpResponse response = mHttpClient.execute(getRequest);
+	    // TODO: find out if the response entity is useful here.
+	    EntityUtils.consume(response.getEntity());
 	    
-	    HttpResponse response = mHttpExecutor.execute(request
-							  , mConnection
-							  , mHttpContext);
-	    response.setParams(mHttpParams);
-	    mHttpExecutor.postProcess(response
-				      , mHttpProcessor
-				      , mHttpContext);
-
-	    System.out.println("Response: " + response.toString());
-
-	    return response;
-	
 	}
-	catch(HttpException e) {
+	catch(IllegalArgumentException e) {
+	    
 	    throw new IOException(e.getMessage());
+	    
 	}
+	
+    }
+    
+    public String mkdir(String location) throws IOException {
 
+	try {
+
+	    String requestURL = "http://" + mHost + ":" + mPort + "/uri" + location + "?t=mkdir";
+
+	    System.out.println(requestURL);
+	    
+	    HttpPut getRequest = new HttpPut(requestURL);
+	    HttpResponse response = mHttpClient.execute(getRequest);
+	    
+	    InputStream responseStream = response.getEntity().getContent();
+	    StringWriter dirCapWriter = new StringWriter();
+
+	    IOUtils.copy(responseStream, dirCapWriter);
+
+	    return dirCapWriter.toString();
+	    
+	}
+	catch(IllegalArgumentException e) {
+	    
+	    throw new IOException(e.getMessage());
+	    
+	}
+	
+    }
+    
+    public HashMap stat(String location) throws IOException {
+	return (new HashMap());
     }
 
 }
