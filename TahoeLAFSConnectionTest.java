@@ -40,6 +40,20 @@ public class TahoeLAFSConnectionTest {
 	String dircap = connection.mkdir(new String());
 
 	System.out.println(dircap);
+	
+	String originalDircap = dircap;
+	
+	dircap = connection.mkdir(dircap + "/test1");
+	System.out.println(dircap);
+	dircap = connection.mkdir(dircap + "/test2");
+	System.out.println(dircap);
+	dircap = connection.mkdir(dircap + "/test3");
+	System.out.println(dircap);
+	dircap = connection.mkdir(dircap + "/test4");
+	System.out.println(dircap);
+
+	String stats = connection.stat("/" + originalDircap);
+	System.out.println(stats);
 
     }
     

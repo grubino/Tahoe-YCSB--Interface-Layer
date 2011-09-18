@@ -25,19 +25,21 @@ package org.lafs;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
+import java.io.File;
 import java.io.IOException;
 
 import java.util.HashMap;
 
 public interface LAFSConnection {
 
-    public InputStream get(String readCap) throws IOException;
-    public void put(String writeCap, OutputStream contents) throws IOException;
-    public void mkdir(String writeCap) throws IOException;
-    public void del(String writeCap) throws IOException;
-    public HashMap stat(String readCap) throws IOException;
+    public InputStream get(String location) throws IOException;
+    public String put(String location, String contentType, File file) throws IOException;
+    public String mkdir(String location) throws IOException;
+    public void del(String location) throws IOException;
+
+    // TODO: change this back to HashMap when done learning how to parse
+    //       JSON in java.  For now just return a string representation.
+    public String stat(String location) throws IOException;
     
 }
 

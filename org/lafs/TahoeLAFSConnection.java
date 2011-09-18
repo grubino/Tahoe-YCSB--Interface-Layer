@@ -9,6 +9,9 @@ import java.io.IOException;
 import java.lang.IllegalArgumentException;
 
 import java.util.HashMap;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicHttpResponse;
@@ -16,6 +19,7 @@ import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.entity.FileEntity;
@@ -112,12 +116,34 @@ public class TahoeLAFSConnection implements LAFSConnection {
 
 	try {
 
-	    String requestURL = "http://" + mHost + ":" + mPort + "/uri" + location + "?t=mkdir";
+	    String[] pathComponents = location.split("/");
+	    String requestURL = new String();
 
+	    if(pathComponents.length > 1) {
+		
+		String parentPath = new String();
+		String childDirName = pathComponents[pathComponents.length-1];
+		
+		for(int i = 0; i < pathComponents.length-1; i++) {
+		    parentPath += pathComponents[i];
+		    if(i < pathComponents.length-2)
+			parentPath += "/";
+		}
+		
+		requestURL =
+		    "http://" + mHost + ":" + mPort
+		    + "/uri/" + parentPath
+		    + "?t=mkdir&name=" + childDirName;
+
+	    }
+	    else {
+		requestURL = "http://" + mHost + ":" + mPort + "/uri?t=mkdir";
+	    }
+	    
 	    System.out.println(requestURL);
 	    
-	    HttpPut getRequest = new HttpPut(requestURL);
-	    HttpResponse response = mHttpClient.execute(getRequest);
+	    HttpPost postRequest = new HttpPost(requestURL);
+	    HttpResponse response = mHttpClient.execute(postRequest);
 	    
 	    InputStream responseStream = response.getEntity().getContent();
 	    StringWriter dirCapWriter = new StringWriter();
@@ -136,7 +162,32 @@ public class TahoeLAFSConnection implements LAFSConnection {
     }
     
     public HashMap stat(String location) throws IOException {
+
+	try {
+
+	    String requestURL = "http://" + mHost + ":" + mPort + "/uri" + location + "?t=json";
+	    
+	    HttpGet getRequest = new HttpGet(requestURL);
+	    HttpResponse response = mHttpClient.execute(getRequest);
+
+	    // parse JSON
+	    
+	}
+	catch(IllegalArgumentException e) {
+	    
+	    throw new IOException(e.getMessage());
+	    
+	}
+	
 	return (new HashMap());
     }
 
+    private class TahoeFileStatsReader {
+	
+	public JsonArray readJsonStream(InputStream in) {
+	    
+	}
+	
+    }
+    
 }
