@@ -35,7 +35,6 @@ import org.lafs.LAFSConnection;
  * The TahoeLAFSConnection will use HTTP calls to a Tahoe server to manipulate LAFS objects
  * by default.
  *
- * TODO: there are many more LAFS operations to add (mkdir, deep-check, stat-ing, etc)
  *
  */
 public class TahoeLAFSConnection implements LAFSConnection {
@@ -62,6 +61,8 @@ public class TahoeLAFSConnection implements LAFSConnection {
 	    
 	    HttpGet getRequest = new HttpGet(requestURL);
 	    HttpResponse response = mHttpClient.execute(getRequest);
+	    
+	    // TODO: check HTTP response code and throw on error.
 
 	    return response.getEntity().getContent();
 	    
@@ -85,9 +86,11 @@ public class TahoeLAFSConnection implements LAFSConnection {
 	putRequest.setEntity(uploadEntity);
 	HttpResponse response = mHttpClient.execute(putRequest);
 	
+	// TODO: check HTTP response code and throw on error.
+
 	InputStream responseStream = response.getEntity().getContent();
 	StringWriter fileCapWriter = new StringWriter();
-
+	
 	IOUtils.copy(responseStream, fileCapWriter);
 
 	return fileCapWriter.toString();
@@ -100,7 +103,10 @@ public class TahoeLAFSConnection implements LAFSConnection {
 	    
 	    HttpDelete getRequest = new HttpDelete("http://" + mHost + ":" + mPort + "/uri" + location);
 	    HttpResponse response = mHttpClient.execute(getRequest);
+	    
 	    // TODO: find out if the response entity is useful here.
+	    // TODO: check HTTP response code and throw on error.
+	    
 	    EntityUtils.consume(response.getEntity());
 	    
 	}
@@ -145,6 +151,8 @@ public class TahoeLAFSConnection implements LAFSConnection {
 	    HttpPost postRequest = new HttpPost(requestURL);
 	    HttpResponse response = mHttpClient.execute(postRequest);
 	    
+            // TODO: check HTTP response code and throw on error.
+
 	    InputStream responseStream = response.getEntity().getContent();
 	    StringWriter dirCapWriter = new StringWriter();
 
@@ -170,8 +178,9 @@ public class TahoeLAFSConnection implements LAFSConnection {
 	    HttpGet getRequest = new HttpGet(requestURL);
 	    HttpResponse response = mHttpClient.execute(getRequest);
 
-	    // parse JSON
-	    
+	    // TODO: parse JSON and populate HashMap (or possibly some other struct).
+            // TODO: check HTTP response code and throw on error.
+
 	}
 	catch(IllegalArgumentException e) {
 	    
@@ -182,12 +191,4 @@ public class TahoeLAFSConnection implements LAFSConnection {
 	return (new HashMap());
     }
 
-    private class TahoeFileStatsReader {
-	
-	public JsonArray readJsonStream(InputStream in) {
-	    
-	}
-	
-    }
-    
 }
