@@ -192,30 +192,7 @@ public class TahoeLAFSConnection implements LAFSConnection {
 				      + response.getStatusLine().getReasonPhrase());
 	    
 	    String jsonStats = IOUtils.toString(response.getEntity().getContent());
-	    JsonParser parser = new JsonParser();
-
-	    try {
-		
-		Set<Map.Entry<String, JsonElement>> childObjects =
-		    parser.parse(jsonStats).
-		    getAsJsonArray().get(1).
-		    getAsJsonObject().get("children").
-		    getAsJsonObject().entrySet();
-		Vector<String> output = new Vector<String>();
-
-		Iterator child_it = childObjects.iterator();
-		while(child_it.hasNext()) {
-		    Map.Entry<String, JsonElement> e = (Map.Entry<String, JsonElement>) child_it.next();
-		    output.add(e.getValue().getAsJsonArray().get(1).
-			       getAsJsonObject().get("ro_uri").getAsString()); 
-		}
-
-		return output;
-		
-	    }
-	    catch(JsonParseException e) {
-		throw new IOException(e.getMessage() + ": " + jsonStats);
-	    }
+	    return _getChildrenFromStats(String jsonStats);
 
 	}
 	catch(IllegalArgumentException e) {
@@ -226,4 +203,33 @@ public class TahoeLAFSConnection implements LAFSConnection {
 
     }
 
+    private Vector<String> _getChildrenFromStats(String jsonStats) {
+
+	JsonParser parser = new JsonParser();
+	
+	try {
+	    
+	    Set<Map.Entry<String, JsonElement>> childObjects =
+		parser.parse(jsonStats).
+		getAsJsonArray().get(1).
+		getAsJsonObject().get("children").
+		getAsJsonObject().entrySet();
+	    Vector<String> output = new Vector<String>();
+	    
+	    Iterator child_it = childObjects.iterator();
+	    while(child_it.hasNext()) {
+		Map.Entry<String, JsonElement> e = (Map.Entry<String, JsonElement>) child_it.next();
+		output.add(e.getValue().getAsJsonArray().get(1).
+			   getAsJsonObject().get("ro_uri").getAsString()); 
+	    }
+	    
+	    return output;
+	    
+	}
+	catch(JsonParseException e) {
+	    throw new IOException(e.getMessage() + ": " + jsonStats);
+	}
+	
+    }
+    
 }
