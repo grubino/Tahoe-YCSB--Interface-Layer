@@ -3,15 +3,15 @@ package org.lafs;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.File;
-import java.io.StringWriter;
 
+import java.lang.Exception;
 import java.io.IOException;
 import java.lang.IllegalArgumentException;
 
-import java.util.HashMap;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
+import java.util.Set;
+import java.util.Map;
+import java.util.Vector;
+import java.util.Iterator;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicHttpResponse;
@@ -26,6 +26,16 @@ import org.apache.http.entity.FileEntity;
 import org.apache.http.util.EntityUtils;
 
 import org.apache.commons.io.IOUtils;
+
+import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+
+
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonSyntaxException;
+
 
 import org.lafs.LAFSConnection;
 
@@ -44,10 +54,10 @@ public class TahoeLAFSConnection implements LAFSConnection {
 
     HttpClient mHttpClient;
     
-    public TahoeLAFSConnection(String hostname, String port) throws IOException {
+    public TahoeLAFSConnection(String hostname, int port) throws IOException {
 
 	mHost = hostname;
-	mPort = port;
+	mPort = (new Integer(port)).toString();
 
 	mHttpClient = new DefaultHttpClient();
 
@@ -62,7 +72,9 @@ public class TahoeLAFSConnection implements LAFSConnection {
 	    HttpGet getRequest = new HttpGet(requestURL);
 	    HttpResponse response = mHttpClient.execute(getRequest);
 	    
-	    // TODO: check HTTP response code and throw on error.
+	    if(response.getStatusLine().getStatusCode() / 200 != 1)
+		throw new IOException("Unexpected response from server: "
+				  + response.getStatusLine().getReasonPhrase());
 
 	    return response.getEntity().getContent();
 	    
@@ -86,14 +98,11 @@ public class TahoeLAFSConnection implements LAFSConnection {
 	putRequest.setEntity(uploadEntity);
 	HttpResponse response = mHttpClient.execute(putRequest);
 	
-	// TODO: check HTTP response code and throw on error.
+	if(response.getStatusLine().getStatusCode() / 200 != 1)
+	    throw new IOException("Unexpected response from server: "
+				  + response.getStatusLine().getReasonPhrase());
 
-	InputStream responseStream = response.getEntity().getContent();
-	StringWriter fileCapWriter = new StringWriter();
-	
-	IOUtils.copy(responseStream, fileCapWriter);
-
-	return fileCapWriter.toString();
+	return IOUtils.toString(response.getEntity().getContent());
 	
     }
     
@@ -105,7 +114,9 @@ public class TahoeLAFSConnection implements LAFSConnection {
 	    HttpResponse response = mHttpClient.execute(getRequest);
 	    
 	    // TODO: find out if the response entity is useful here.
-	    // TODO: check HTTP response code and throw on error.
+	    if(response.getStatusLine().getStatusCode() / 200 != 1)
+		throw new IOException("Unexpected response from server: "
+				      + response.getStatusLine().getReasonPhrase());
 	    
 	    EntityUtils.consume(response.getEntity());
 	    
@@ -151,14 +162,11 @@ public class TahoeLAFSConnection implements LAFSConnection {
 	    HttpPost postRequest = new HttpPost(requestURL);
 	    HttpResponse response = mHttpClient.execute(postRequest);
 	    
-            // TODO: check HTTP response code and throw on error.
+	    if(response.getStatusLine().getStatusCode() / 200 != 1)
+		throw new IOException("Unexpected response from server: "
+				  + response.getStatusLine().getReasonPhrase());
 
-	    InputStream responseStream = response.getEntity().getContent();
-	    StringWriter dirCapWriter = new StringWriter();
-
-	    IOUtils.copy(responseStream, dirCapWriter);
-
-	    return dirCapWriter.toString();
+	    return IOUtils.toString(response.getEntity().getContent());
 	    
 	}
 	catch(IllegalArgumentException e) {
@@ -168,8 +176,9 @@ public class TahoeLAFSConnection implements LAFSConnection {
 	}
 	
     }
-    
-    public HashMap stat(String location) throws IOException {
+
+    @SuppressWarnings("unchecked")
+    public Vector<String> list(String location) throws IOException {
 
 	try {
 
@@ -178,8 +187,35 @@ public class TahoeLAFSConnection implements LAFSConnection {
 	    HttpGet getRequest = new HttpGet(requestURL);
 	    HttpResponse response = mHttpClient.execute(getRequest);
 
-	    // TODO: parse JSON and populate HashMap (or possibly some other struct).
-            // TODO: check HTTP response code and throw on error.
+	    if(response.getStatusLine().getStatusCode() / 200 != 1)
+		throw new IOException("Unexpected response from server: "
+				      + response.getStatusLine().getReasonPhrase());
+	    
+	    String jsonStats = IOUtils.toString(response.getEntity().getContent());
+	    JsonParser parser = new JsonParser();
+
+	    try {
+		
+		Set<Map.Entry<String, JsonElement>> childObjects =
+		    parser.parse(jsonStats).
+		    getAsJsonArray().get(1).
+		    getAsJsonObject().get("children").
+		    getAsJsonObject().entrySet();
+		Vector<String> output = new Vector<String>();
+
+		Iterator child_it = childObjects.iterator();
+		while(child_it.hasNext()) {
+		    Map.Entry<String, JsonElement> e = (Map.Entry<String, JsonElement>) child_it.next();
+		    output.add(e.getValue().getAsJsonArray().get(1).
+			       getAsJsonObject().get("ro_uri").getAsString()); 
+		}
+
+		return output;
+		
+	    }
+	    catch(JsonParseException e) {
+		throw new IOException(e.getMessage() + ": " + jsonStats);
+	    }
 
 	}
 	catch(IllegalArgumentException e) {
@@ -187,8 +223,7 @@ public class TahoeLAFSConnection implements LAFSConnection {
 	    throw new IOException(e.getMessage());
 	    
 	}
-	
-	return (new HashMap());
+
     }
 
 }

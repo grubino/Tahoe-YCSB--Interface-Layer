@@ -15,20 +15,21 @@
  *                                               LAFS if possible.
  * LAFSConnection.del(FileIdentifier id) - remove the LAFS object identified by id if possible.
  * LAFSConnection.mkdir(FileIdentifier id) - create a new container for LAFS objects if possible.
+ * LAFSConnection.list(FileIdentifier id) - list the FileIdentifiers of the children of the directory 'id'.
  *
  * file statistics
  * ===============
- * LAFSConnection.stat(FileIdentifier id) - get a map containing file statistics
+ * LAFSConnection.list(FileIdentifier id) - get a map containing file statistics
  */
 
 package org.lafs;
+
+import java.util.Vector;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.File;
 import java.io.IOException;
-
-import java.util.HashMap;
 
 public interface LAFSConnection {
 
@@ -36,10 +37,7 @@ public interface LAFSConnection {
     public String put(String location, String contentType, File file) throws IOException;
     public String mkdir(String location) throws IOException;
     public void del(String location) throws IOException;
-
-    // TODO: change this back to HashMap when done learning how to parse
-    //       JSON in java.  For now just return a string representation.
-    public String stat(String location) throws IOException;
+    public Vector<String> list(String location) throws IOException;
     
 }
 
