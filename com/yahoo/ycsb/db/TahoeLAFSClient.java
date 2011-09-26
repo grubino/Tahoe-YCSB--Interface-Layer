@@ -1,3 +1,5 @@
+package com.yahoo.ycsb.db;
+
 /**
  * Tahoe-LAFS client binding for YCSB.
  *
@@ -8,17 +10,18 @@
  *
  */
 
-package com.yahoo.ycsb.db;
-
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.Vector;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 
 import org.apache.commons.io.IOUtils;
 
@@ -36,7 +39,7 @@ import org.lafs.TahoeLAFSConnection;
  * TahoeLAFS.port=3456
  * TODO: put more properties here if necessary.
  *
- * @author grubino
+ * @author gred
  *
  */
 public class TahoeLAFSClient extends DB {
@@ -44,16 +47,19 @@ public class TahoeLAFSClient extends DB {
     private String mHost;
     private int mPort;
     private String mDirCap; 
+
+    public TahoeLAFSClient() {}
     
     /**
      * Initialize any state for this DB. Called once per DB instance; there is
      * one DB instance per client thread.
      */
     public void init() throws DBException {
+
         // initialize TahoeLAFS driver
         Properties props = getProperties();
-	mHost = props.getProperty("TahoeLAFS.host");
-	mPort = props.getProperty("TahoeLAFS.port");
+	mHost = props.getProperty("TahoeLAFSClient.host");
+	mPort = Integer.parseInt(props.getProperty("TahoeLAFSClient.port"));
 
 	try {
 	    
@@ -76,7 +82,7 @@ public class TahoeLAFSClient extends DB {
      * @param subdir The subdirectory name
      * @return Zero on success, a non-zero error code on error. See this class's description for a discussion of error codes.
      */
-    public int delete(String dircap, String subdir) {
+    public int delete(String dir, String subdir) {
         try {
 	    
 	    TahoeLAFSConnection conn = new TahoeLAFSConnection(mHost, mPort);
@@ -84,18 +90,10 @@ public class TahoeLAFSClient extends DB {
 	    conn.del("/" + mDirCap + "/" + dir + "/" + subdir);
 	    conn = null;
 	    
-            return ((Integer) errors.get("n")) == 1 ? 0 : 1;
+            return 0;
 	    
         } catch (Exception e) {
-            logger.error(e , e);
             return 1;
-        }
-        finally
-        {
-            if (conn != null)
-            {
-		conn = null;
-            }
         }
 	
     }
@@ -120,24 +118,30 @@ public class TahoeLAFSClient extends DB {
 
 	    Iterator it = values.entrySet().iterator();
 	    while(it.hasNext()) {
+
 		Map.Entry current = (Map.Entry) it.next();
+		
+		File newFile = new File((String) current.getKey());
+		newFile.createTempFile("", "");
+		newFile.deleteOnExit();
+		
+		FileWriter writer = new FileWriter(newFile);
+		writer.write((String) current.getValue());
+		
 		conn.put("/" + mDirCap + "/" + dir + "/" + subdir + "/" + current.getKey()
-			 , new File(current.getValue()));
+			 , "text/plain"
+			 , newFile);
+		
 	    }
 	    
 	    conn = null;
 	    
-            return (errors.get("ok") != null && errors.get("err") == null) ? 0 : 1;
+            return 0;
 	    
         } catch (Exception e) {
-            logger.error(e, e);
             return 1;
-        } finally {
-            if (conn!=null)
-            {
-		conn = null;
-            }
         }
+	
     }
 
     @Override
@@ -162,7 +166,7 @@ public class TahoeLAFSClient extends DB {
 
 	    Iterator filename_it = filenames.iterator();
 	    while(filename_it.hasNext()) {
-		String filename = filename_it.next();
+		String filename = (String) filename_it.next();
 		Iterator contents_it = fileContents.entrySet().iterator();
 		
 		// warning!  larger files will make this very memory intensive!
@@ -175,15 +179,11 @@ public class TahoeLAFSClient extends DB {
 	    
             return fileContents != null ? 0 : 1;
 	    
-        } catch (Exception e) {
-            logger.error(e, e);
-            return 1;
-        } finally {
-            if (conn!=null)
-            {
-		conn = null;
-            }
         }
+	catch (Exception e) {
+            return 1;
+        }
+	
     }
 
 
@@ -202,49 +202,59 @@ public class TahoeLAFSClient extends DB {
 		      , HashMap<String, String> fileContents) {
 
         try {
-	    conn = new TahoeLAFSConnection(mHost, mPort);
+	    TahoeLAFSConnection conn = new TahoeLAFSConnection(mHost, mPort);
             return insert(dir, subdir, fileContents);
-        } catch (Exception e) {
-            logger.error(e, e);
-            return 1;
-        } finally {
-            if (db!=null)
-            {
-		conn = null;
-            }
         }
+	catch (Exception e) {
+            return 1;
+        }
+	
     }
 
     @Override
     @SuppressWarnings("unchecked")
     /**
-     * Perform a range scan for a set of records in the database. Each field/value pair from the result will be
+     * Perform a range scan for a set of directories in the filesystem. Each file/content pair from the result will be
      * stored in a HashMap.
      *
-     * @param dir The name of the directory
-     * @param subdir The name of the first subdirectory to read.
-     * @param recordcount The number of records to read
-     * @param fields The list of fields to read, or null for all of them
+     * @param dir The name of the root directory
+     * @param startSubdir The name of the first subdirectory to read.
+     * @param dirCount The number of records to read
+     * @param filenames The list of files to read, or null for all of them
      * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
      * @return Zero on success, a non-zero error code on error. See this class's description for a discussion of error codes.
      */
-    public int scan(String table
-		    , String startkey
-		    , int recordcount
-		    , Set<String> fields
+    public int scan(String dir
+		    , String startSubdir
+		    , int dirCount
+		    , Set<String> filenames
 		    , Vector<HashMap<String, String>> result) {
 
         try {
+
+	    TahoeLAFSConnection conn = new TahoeLAFSConnection(mHost, mPort);
+
+	    Set<String> dirs = new TreeSet<String>(conn.list(dir));
+
+	    Iterator dir_it = dirs.iterator();
+	    for(int i = 0; i < dirCount && dir_it.hasNext(); i++) {
+		
+		HashMap<String, String> newResult = new HashMap<String, String>();
+		if(read(dir, (String) dir_it.next(), filenames, newResult) != 0) {
+		    result.add(newResult);
+		}
+		else {
+		    return 1;
+		}
+		
+	    }
+
+	    conn = null;
             return 0;
-        } catch (Exception e) {
-            logger.error(e + "", e);
-            return 1;
+	    
         }
-        finally
-        {
-            if (db!=null)
-            {
-            }
+	catch (Exception e) {
+            return 1;
         }
 
     }

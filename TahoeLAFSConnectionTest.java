@@ -3,11 +3,14 @@ import org.lafs.TahoeLAFSConnection;
 import java.io.InputStream;
 import java.io.File;
 
+import java.util.Vector;
+import java.util.Iterator;
+
 public class TahoeLAFSConnectionTest {
 
     public static void main(String[] args) throws Exception {
 	TahoeLAFSConnection connection = new TahoeLAFSConnection(args[0]
-								 , args[1]);
+								 , Integer.parseInt(args[1]));
 
 	String location = "/URI:DIR2:lfdwla6opaupuyf2nmwtopxvxa:cvltcnx2undbkydkm5h2vta4z64p2vs3efgzvy4liydafof37p5a/test";
  		
@@ -52,8 +55,12 @@ public class TahoeLAFSConnectionTest {
 	dircap = connection.mkdir(dircap + "/test4");
 	System.out.println(dircap);
 
-	String stats = connection.stat("/" + originalDircap);
-	System.out.println(stats);
+	Vector<String> fileList = connection.list("/" + originalDircap);
+
+	Iterator file_it = fileList.iterator();
+	while(file_it.hasNext()) {
+	    System.out.println(file_it.next());
+	}
 
     }
     

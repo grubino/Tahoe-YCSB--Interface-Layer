@@ -45,6 +45,7 @@ import org.lafs.LAFSConnection;
  * The TahoeLAFSConnection will use HTTP calls to a Tahoe server to manipulate LAFS objects
  * by default.
  *
+ * TODO: use a specialized object for constructing URLs rather than Strings, possibly java.net.URL
  *
  */
 public class TahoeLAFSConnection implements LAFSConnection {
@@ -177,7 +178,6 @@ public class TahoeLAFSConnection implements LAFSConnection {
 	
     }
 
-    @SuppressWarnings("unchecked")
     public Vector<String> list(String location) throws IOException {
 
 	try {
@@ -192,7 +192,7 @@ public class TahoeLAFSConnection implements LAFSConnection {
 				      + response.getStatusLine().getReasonPhrase());
 	    
 	    String jsonStats = IOUtils.toString(response.getEntity().getContent());
-	    return _getChildrenFromStats(String jsonStats);
+	    return _getChildrenFromStats(jsonStats);
 
 	}
 	catch(IllegalArgumentException e) {
@@ -203,7 +203,8 @@ public class TahoeLAFSConnection implements LAFSConnection {
 
     }
 
-    private Vector<String> _getChildrenFromStats(String jsonStats) {
+    @SuppressWarnings("unchecked")
+    private Vector<String> _getChildrenFromStats(String jsonStats) throws IOException {
 
 	JsonParser parser = new JsonParser();
 	
